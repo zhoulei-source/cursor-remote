@@ -1,0 +1,58 @@
+{
+  "name": "cursor-remote",
+  "version": "1.1.0",
+  "description": "通过 IM 远程控制本地 Cursor Agent — 在聊天中发消息即可让 AI 帮你写代码",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "cursor-remote": "./bin/cli.js"
+  },
+  "files": [
+    "dist",
+    "bin",
+    ".env.example"
+  ],
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "build": "tsc",
+    "postbuild": "chmod +x bin/cli.js",
+    "prepublishOnly": "npm run build",
+    "lint": "eslint src --ext .ts"
+  },
+  "keywords": [
+    "cursor",
+    "cursor-agent",
+    "ai",
+    "agent",
+    "remote-control",
+    "feishu",
+    "lark",
+    "dingtalk",
+    "wechat-work",
+    "slack",
+    "im",
+    "bot",
+    "bridge"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zhoulei-source/cursor-remote"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@larksuiteoapi/node-sdk": "^1.1.1",
+    "dotenv": "^16.4.5",
+    "nanoid": "^5.0.7",
+    "pino": "^9.0.0",
+    "pino-pretty": "^11.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.7",
+    "tsx": "^4.7.2",
+    "typescript": "^5.4.5"
+  }
+}
