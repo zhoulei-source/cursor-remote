@@ -60,6 +60,7 @@ export class CursorAgentExecutor {
 
     return new Promise<IExecuteResult>((resolve, reject) => {
       let fullOutput = '';
+      let currentTurnAccum = '';
       let sessionId: string | null = null;
       let settled = false;
 
@@ -128,18 +129,45 @@ export class CursorAgentExecutor {
                 logger.debug({ sessionId }, '获取到 session_id');
               }
 
-              // 提取可读文本
+              // 非 assistant 事件（tool_use / tool_result 等）标志新回合，重置回合累积器
+              const eventType = event['type'] as string | undefined;
+              if (eventType && eventType !== 'assistant') {
+                currentTurnAccum = '';
+              }
+
               const text = this.extractText(event);
               if (text) {
-                // 去重：cursor-agent 在 stream-partial-output 模式下，
-                // 可能在流式 delta 之后再发一个完整内容的 assistant 事件，
-                // 如果新文本和已累积输出一致，说明是重复的完整消息，跳过
-                const isDuplicate =
-                  fullOutput.length > 0 &&
-                  text.length >= fullOutput.length * 0.8 &&
-                  (fullOutput.trim() === text.trim() || fullOutput.trim().startsWith(text.trim()) || text.trim().startsWith(fullOutput.trim()));
+                // 去重：按当前回合已累积的文本判断，而非全局 fullOutput
+                // cursor-agent 在 stream-partial-output 模式下，
+                // 会在流式 delta 之后再发一个完整内容的 assistant 事件
+                const isExactOrSubset =
+                  currentTurnAccum.length > 0 &&
+                  (currentTurnAccum.trim() === text.trim() ||
+                   currentTurnAccum.trim().startsWith(text.trim()));
 
-                if (!isDuplicate) {
+                const isSupersetOfTurn =
+                  currentTurnAccum.length > 0 &&
+                  text.trim().startsWith(currentTurnAccum.trim()) &&
+                  text.length > currentTurnAccum.length;
+
+                if (isExactOrSubset) {
+                  logger.debug({ taskId: task.taskId, textLen: text.length, turnLen: currentTurnAccum.length }, '跳过重复文本');
+                } else if (isSupersetOfTurn) {
+                  const extra = text.slice(currentTurnAccum.length);
+                  currentTurnAccum = text;
+                  fullOutput += extra;
+                  task.output = fullOutput;
+
+                  const files = extractChangedFiles(fullOutput);
+                  if (files.length > 0) {
+                    task.changedFiles = files;
+                  }
+
+                  callbacks.onOutput(task, extra).catch((err) => {
+                    logger.error({ err }, '输出回调失败');
+                  });
+                } else {
+                  currentTurnAccum += text;
                   fullOutput += text;
                   task.output = fullOutput;
 
@@ -151,8 +179,6 @@ export class CursorAgentExecutor {
                   callbacks.onOutput(task, text).catch((err) => {
                     logger.error({ err }, '输出回调失败');
                   });
-                } else {
-                  logger.debug({ taskId: task.taskId, textLen: text.length, outputLen: fullOutput.length }, '跳过重复文本');
                 }
               }
             } catch {
@@ -189,14 +215,17 @@ export class CursorAgentExecutor {
               }
               const text = this.extractText(event);
               if (text) {
-                // 去重：同上，避免 close 时残留 buffer 里的完整消息再次追加
-                const isDuplicate =
-                  fullOutput.length > 0 &&
-                  text.length >= fullOutput.length * 0.8 &&
-                  (fullOutput.trim() === text.trim() || fullOutput.trim().startsWith(text.trim()) || text.trim().startsWith(fullOutput.trim()));
+                const isExactOrSubset =
+                  currentTurnAccum.length > 0 &&
+                  (currentTurnAccum.trim() === text.trim() ||
+                   currentTurnAccum.trim().startsWith(text.trim()));
 
-                if (!isDuplicate) {
-                  fullOutput += text;
+                if (!isExactOrSubset) {
+                  if (currentTurnAccum.length > 0 && text.trim().startsWith(currentTurnAccum.trim())) {
+                    fullOutput += text.slice(currentTurnAccum.length);
+                  } else {
+                    fullOutput += text;
+                  }
                   task.output = fullOutput;
                 }
               }
