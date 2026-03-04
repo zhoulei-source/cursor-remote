@@ -1,4 +1,5 @@
-import { loadConfig } from './config.js';
+import { loadConfig, saveAllowedUserId } from './config.js';
+import { nanoid } from 'nanoid';
 import { createLogger, getLogger } from './utils/logger.js';
 import { FeishuClient } from './feishu/client.js';
 import { parseCommand, getHelpMessage } from './feishu/event-handler.js';
@@ -76,14 +77,48 @@ async function main(): Promise<void> {
     }
   });
 
-  // 消息处理
-  feishuClient.onMessage(async (message: IParsedMessage) => {
-    const command = parseCommand(message.text);
+  // 用户鉴权
+  const allowedUserIds = new Set(config.security.allowedUserIds);
+  let pairingCode: string | null = null;
 
+  if (allowedUserIds.size > 0) {
+    logger.info({ allowedUserIds: [...allowedUserIds] }, '已启用用户白名单');
+  } else {
+    pairingCode = nanoid(6).toUpperCase();
+    logger.info('========================================');
+    logger.info(`  配对码: ${pairingCode}`);
+    logger.info('  在飞书中发送此配对码完成身份绑定');
+    logger.info('========================================');
+  }
+
+  feishuClient.onMessage(async (message: IParsedMessage) => {
     logger.info(
-      { type: command.type, text: message.text.slice(0, 100), chatId: message.chatId },
+      { senderId: message.senderId, chatId: message.chatId, text: message.text.slice(0, 100) },
       '收到消息'
     );
+
+    // 配对模式：验证配对码并绑定用户
+    if (pairingCode && message.text.trim() === pairingCode) {
+      allowedUserIds.add(message.senderId);
+      pairingCode = null;
+      try {
+        saveAllowedUserId(message.senderId);
+        logger.info({ senderId: message.senderId }, '用户配对成功，已写入配置');
+        await messenger.replyText(message.messageId, `✅ 配对成功！已绑定你的身份，只有你可以使用此机器人。`);
+      } catch (err) {
+        logger.error({ err }, '保存配对信息失败');
+        await messenger.replyText(message.messageId, '配对成功，但写入配置文件失败，请手动配置 ALLOWED_USER_IDS');
+      }
+      return;
+    }
+
+    // 白名单校验
+    if (allowedUserIds.size > 0 && !allowedUserIds.has(message.senderId)) {
+      logger.warn({ senderId: message.senderId }, '未授权用户，已忽略');
+      return;
+    }
+
+    const command = parseCommand(message.text);
 
     switch (command.type) {
       case 'help': {

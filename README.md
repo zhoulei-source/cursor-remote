@@ -126,6 +126,23 @@ cursor-remote init
 cursor-remote start
 ```
 
+### 身份绑定（首次启动）
+
+首次启动时，终端会显示一个 6 位配对码：
+
+```
+========================================
+  配对码: A3X9KM
+  在飞书中发送此配对码完成身份绑定
+========================================
+```
+
+在飞书中给机器人发送这个配对码，即可完成绑定。绑定后：
+
+- 你的身份会自动写入 `~/.cursor-remote/config.env`
+- **只有你能使用这个机器人**，即使拉进群聊，其他人的消息也会被忽略
+- 配对码一次性有效，重启服务后如需重新配对，删除配置中的 `ALLOWED_USER_IDS` 即可
+
 看到以下日志说明成功：
 
 ```
@@ -235,7 +252,8 @@ cursor-remote config
 |---|---|---|---|
 | `FEISHU_APP_ID` | ✅ | - | 飞书应用 App ID |
 | `FEISHU_APP_SECRET` | ✅ | - | 飞书应用 App Secret |
-| `DEFAULT_PROJECT_PATH` | - | 当前目录 | 默认项目路径 |
+| `ALLOWED_USER_IDS` | - | 空（首次启动通过配对码自动设置） | 允许使用的飞书用户 open_id，逗号分隔 |
+| `DEFAULT_PROJECT_PATH` | - | 用户主目录 | 默认项目路径 |
 | `CURSOR_AGENT_PATH` | - | 自动检测 | cursor-agent 二进制路径 |
 | `LOG_LEVEL` | - | `info` | 日志级别 (debug/info/warn/error) |
 | `STREAM_PUSH_INTERVAL` | - | `3000` | 流式推送间隔（毫秒） |

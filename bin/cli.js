@@ -98,6 +98,7 @@ async function cmdInit() {
 
   const defaultProject = await ask(rl, '默认项目路径', homedir());
   const cursorAgentPath = await ask(rl, 'cursor-agent 路径（留空自动检测）', '');
+  const allowedUserIds = await ask(rl, '允许使用的用户 open_id（逗号分隔，留空不限制）', '');
   const logLevel = await ask(rl, '日志级别 (debug/info/warn/error)', 'info');
 
   rl.close();
@@ -119,6 +120,9 @@ async function cmdInit() {
     '',
     '# cursor-agent 路径（留空自动检测）',
     cursorAgentPath ? `CURSOR_AGENT_PATH=${cursorAgentPath}` : '# CURSOR_AGENT_PATH=',
+    '',
+    '# 允许使用的用户 open_id（逗号分隔，留空不限制）',
+    `ALLOWED_USER_IDS=${allowedUserIds}`,
     '',
     '# 日志级别',
     `LOG_LEVEL=${logLevel}`,

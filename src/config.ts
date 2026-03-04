@@ -1,6 +1,6 @@
 import { config as dotenvConfig } from 'dotenv';
 import { resolve, join } from 'path';
-import { existsSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { homedir } from 'os';
 
 // 加载 .env 文件（优先级: CLI 指定 > ~/.feishu-cursor/config.env > 当前目录 .env）
@@ -63,12 +63,18 @@ export interface ILogConfig {
   level: string;
 }
 
+/** 安全配置 */
+export interface ISecurityConfig {
+  allowedUserIds: string[];
+}
+
 /** 全局配置 */
 export interface IAppConfig {
   feishu: IFeishuConfig;
   cursor: ICursorConfig;
   stream: IStreamConfig;
   log: ILogConfig;
+  security: ISecurityConfig;
 }
 
 function resolveCursorAgentPath(): string {
@@ -107,6 +113,12 @@ export function loadConfig(): IAppConfig {
     log: {
       level: optionalEnv('LOG_LEVEL', 'info'),
     },
+    security: {
+      allowedUserIds: optionalEnv('ALLOWED_USER_IDS', '')
+        .split(',')
+        .map((id) => id.trim())
+        .filter(Boolean),
+    },
   };
 
   // 校验默认项目路径
@@ -115,4 +127,22 @@ export function loadConfig(): IAppConfig {
   }
 
   return config;
+}
+
+/** 将 ALLOWED_USER_IDS 持久化写入配置文件 */
+export function saveAllowedUserId(userId: string): void {
+  const configPath = process.env['DOTENV_CONFIG_PATH']
+    || join(homedir(), '.cursor-remote', 'config.env');
+
+  if (!existsSync(configPath)) return;
+
+  let content = readFileSync(configPath, 'utf-8');
+
+  if (/^ALLOWED_USER_IDS=/m.test(content)) {
+    content = content.replace(/^ALLOWED_USER_IDS=.*$/m, `ALLOWED_USER_IDS=${userId}`);
+  } else {
+    content += `\nALLOWED_USER_IDS=${userId}\n`;
+  }
+
+  writeFileSync(configPath, content, 'utf-8');
 }
