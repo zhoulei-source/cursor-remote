@@ -1,6 +1,6 @@
 {
   "name": "cursor-remote",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "通过 IM 远程控制本地 Cursor Agent — 在聊天中发消息即可让 AI 帮你写代码",
   "type": "module",
   "main": "dist/index.js",
